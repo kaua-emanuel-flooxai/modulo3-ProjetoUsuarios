@@ -3,7 +3,21 @@ class UserController {
     this.formEl = document.getElementById(formId);
     this.tableEl = document.getElementById(tableId);
 
+    if (!this.formEl || !this.tableEl) {
+      console.error("Formulário ou tabela não encontrados. Verifique os IDs.");
+      return;
+    }
+
     this.onSubmit();
+    this.onEditCancel();
+  }
+
+  onEditCancel() {
+    document
+      .querySelector("#box-user-update .btn-cancel")
+      .addEventListener("click", (e) => {
+        this.showPainelCreate();
+      });
   }
 
   onSubmit() {
@@ -35,11 +49,11 @@ class UserController {
   resetForm() {
     this.formEl.reset();
 
-    // Remove classe de erro
     [...this.formEl.elements].forEach((field) => {
-      field.parentElement?.classList.remove("has-error");
+      if (field.parentElement?.classList.contains("has-error")) {
+        field.parentElement.classList.remove("has-error");
+      }
 
-      // Resetar campos específicos se necessário
       if (field.type === "checkbox" || field.type === "radio") {
         field.checked = false;
       }
@@ -85,12 +99,14 @@ class UserController {
         user.gender = field.value;
       } else if (field.name === "admin") {
         user.admin = field.checked;
-      } else {
+      } else if (field.name !== "photo") {
         user[field.name] = field.value;
       }
     });
 
     if (!isValid) return false;
+
+    user.photo = "";
 
     return new User(
       user.name,
@@ -122,14 +138,40 @@ class UserController {
       <td>${dataUser.admin ? "Sim" : "Não"}</td>
       <td>${Utils.dateFormat(dataUser.register)}</td>
       <td>
-        <button type="button" class="btn btn-primary btn-xs btn-flat">Editar</button>
+        <button type="button" class="btn btn-primary btn-edit btn-xs btn-flat">Editar</button>
         <button type="button" class="btn btn-danger btn-xs btn-flat">Excluir</button>
       </td>
     `;
 
-    this.tableEl.appendChild(tr);
+    tr.querySelector(".btn-edit").addEventListener("click", () => {
+      this.showPainelUpdate();
 
+      let json = JSON.parse(tr.dataset.user);
+      let form = document.querySelector("#box-user-update");
+
+      for (let name in json) {
+        let field = form.querySelector("name" + name.replace("_", "") + "]");
+
+        if (field) {
+          if (field.type == "file") continue;
+
+          field.value = json[name];
+        }
+      }
+    });
+
+    this.tableEl.appendChild(tr);
     this.updateAcount();
+  }
+
+  showPainelCreate() {
+    document.querySelector("#box-user-create").style.display = "block";
+    document.querySelector("#box-user-update").style.display = "none";
+  }
+
+  showPainelUpdate() {
+    document.querySelector("#box-user-create").style.display = "none";
+    document.querySelector("#box-user-update").style.display = "block";
   }
 
   updateAcount() {
@@ -141,7 +183,7 @@ class UserController {
 
       let user = JSON.parse(tr.dataset.user);
 
-      if (user._admin) adminNumber++;
+      if (user.admin) adminNumber++;
     });
 
     document.querySelector("#number-users").innerHTML = usersNumber;
