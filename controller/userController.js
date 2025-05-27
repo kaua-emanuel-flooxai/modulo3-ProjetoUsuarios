@@ -1,3 +1,5 @@
+const { jsx } = require("react/jsx-runtime");
+
 class UserController {
   constructor(formId, formUpdate, tableId) {
     this.formEl = document.getElementById(formId);
@@ -13,6 +15,7 @@ class UserController {
 
     this.onSubmit();
     this.onEditCancel();
+    this.selectAll();
   }
 
   onEditCancel() {
@@ -95,8 +98,9 @@ class UserController {
 
       this.getPhoto(this.formEl).then(
         (content) => {
-          values.photo = content || "";
-          values.register = new Date();
+          values.photo = content;
+
+          this.insert(values);
 
           this.addLine(values);
           this.resetForm();
@@ -154,8 +158,38 @@ class UserController {
     return isValid ? user : false;
   }
 
+  getUsersStorege() {
+    let users = [];
+
+    if (localStorage.getItem("users")) {
+      users = JSON.parse(localStorage.getItem("users"));
+    }
+    return users;
+  }
+
+  selectAll() {
+    let users = this.getUsersStorege();
+
+    users.forEach((data) => {
+      let user = new User();
+
+      user.loadFromJSON(dataUser);
+
+      this.addLine(user);
+    });
+  }
+
+  insert(data) {
+    let users = this.getUsersStorege();
+
+    users.push(data);
+
+    localStorage.setItem("user", JSON.stringify(users));
+  }
+
   addLine(dataUser) {
     const tr = document.createElement("tr");
+
     dataUser._photo = dataUser.photo;
     tr.dataset.user = JSON.stringify(dataUser);
 
