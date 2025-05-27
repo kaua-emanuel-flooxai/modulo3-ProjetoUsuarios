@@ -1,5 +1,5 @@
 class UserController {
-  constructor(formId) {
+  constructor(formId, tableId) {
     this.formEl = document.getElementById(formId);
     this.tableEl = document.getElementById(tableId);
 
@@ -12,79 +12,85 @@ class UserController {
 
       let values = this.getValues();
 
-      let btn = this.formEl.querySelector("[type=submit]");
+      if (!values) return;
 
+      let btn = this.formEl.querySelector("[type=submit]");
       btn.disabled = true;
 
       this.getPhoto().then(
         (content) => {
-          values.photo = content;
-
+          values.photo = content || "";
           this.addLine(values);
-          this.formEl.reset();
+          this.resetForm();
           btn.disabled = false;
         },
         (e) => {
           console.error(e);
+          btn.disabled = false;
         }
       );
     });
   }
 
+  resetForm() {
+    this.formEl.reset();
+
+    // Remove classe de erro
+    [...this.formEl.elements].forEach((field) => {
+      field.parentElement?.classList.remove("has-error");
+
+      // Resetar campos específicos se necessário
+      if (field.type === "checkbox" || field.type === "radio") {
+        field.checked = false;
+      }
+
+      if (field.type === "file") {
+        field.value = "";
+      }
+    });
+  }
+
   getPhoto() {
-    return new Promise((revolve, reject) => {
-      let fileReader = new fileReader();
+    return new Promise((resolve, reject) => {
+      let fileReader = new FileReader();
 
-      let elements = [...this.formEl.elements].filter((item) => {
-        if (item.name === "photo") {
-          return item;
-        }
-      });
+      let elements = [...this.formEl.elements].filter(
+        (item) => item.name === "photo"
+      );
 
-      let file = elements[0].files[0];
+      let file = elements[0]?.files[0];
 
-      fileReader.onload = () => {
-        revolve(fileReader.result);
-      };
-
-      fileReader.onerror = (e) => {
-        reject(e);
-      };
+      fileReader.onload = () => resolve(fileReader.result);
+      fileReader.onerror = (e) => reject(e);
 
       if (file) {
         fileReader.readAsDataURL(file);
       } else {
-        revolve();
+        resolve();
       }
     });
   }
 
   getValues() {
     let user = {};
-    let isValed = true;
+    let isValid = true;
 
-    [...this.formEl.elements].forEach(function (field) {
-      if (
-        ["name", "email", "password"].indexOf(field.name) > -1 &&
-        !field.value
-      ) {
+    [...this.formEl.elements].forEach((field) => {
+      if (["name", "email", "password"].includes(field.name) && !field.value) {
         field.parentElement.classList.add("has-error");
-        isValed = false;
+        isValid = false;
       }
-      if (field.name === "gender") {
-        if (field.checked) {
-          user["gender"] = field.value;
-        }
-      } else if (field.type === "admin") {
-        user[field.name] = field.checked;
+
+      if (field.name === "gender" && field.checked) {
+        user.gender = field.value;
+      } else if (field.name === "admin") {
+        user.admin = field.checked;
       } else {
         user[field.name] = field.value;
       }
     });
 
-    if (!isValed) {
-      return false;
-    }
+    if (!isValid) return false;
 
     return new User(
       user.name,
@@ -101,23 +107,44 @@ class UserController {
   addLine(dataUser) {
     let tr = document.createElement("tr");
 
+    tr.dataset.user = JSON.stringify(dataUser);
+
     tr.innerHTML = `
-    <td>
-      <img
-        src="dist/img/user1-128x128.jpg"
-        alt="User Image"
-        class="img-circle img-sm"
-      />
-    </td>
-    <td>${dataUser.name}</td>
-    <td>${dataUser.email}</td>
-    <td>${dataUser.admin ? "Sim" : "Não"}</td>
-    <td>${Utils.dateFormat(dataUser.register)}</td>
-    <td>
-      <button type="button" class="btn btn-primary btn-xs btn-flat">Editar</button>
-      <button type="button" class="btn btn-danger btn-xs btn-flat">Excluir</button>
-    </td>
-  `;
-    this.appendChild(tr);
+      <td>
+        <img
+          src="${dataUser.photo || "dist/img/user1-128x128.jpg"}"
+          alt="User Image"
+          class="img-circle img-sm"
+        />
+      </td>
+      <td>${dataUser.name}</td>
+      <td>${dataUser.email}</td>
+      <td>${dataUser.admin ? "Sim" : "Não"}</td>
+      <td>${Utils.dateFormat(dataUser.register)}</td>
+      <td>
+        <button type="button" class="btn btn-primary btn-xs btn-flat">Editar</button>
+        <button type="button" class="btn btn-danger btn-xs btn-flat">Excluir</button>
+      </td>
+    `;
+
+    this.tableEl.appendChild(tr);
+
+    this.updateAcount();
+  }
+
+  updateAcount() {
+    let usersNumber = 0;
+    let adminNumber = 0;
+
+    [...this.tableEl.children].forEach((tr) => {
+      usersNumber++;
+
+      let user = JSON.parse(tr.dataset.user);
+
+      if (user._admin) adminNumber++;
+    });
+
+    document.querySelector("#number-users").innerHTML = usersNumber;
+    document.querySelector("#number-users-admins").innerHTML = adminNumber;
   }
 }
