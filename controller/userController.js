@@ -1,10 +1,13 @@
 class UserController {
-  constructor(formId, tableId) {
+  constructor(formId, formUpdate, tableId) {
     this.formEl = document.getElementById(formId);
+    this.formUpdateEl = document.getElementById(formUpdate);
     this.tableEl = document.getElementById(tableId);
 
-    if (!this.formEl || !this.tableEl) {
-      console.error("Formulário ou tabela não encontrados. Verifique os IDs.");
+    if (!this.formEl || !this.formUpdateEl || !this.tableEl) {
+      console.error(
+        "Formulário(s) ou tabela não encontrados. Verifique os IDs."
+      );
       return;
     }
 
@@ -15,18 +18,70 @@ class UserController {
   onEditCancel() {
     document
       .querySelector("#box-user-update .btn-cancel")
-      .addEventListener("click", (e) => {
+      .addEventListener("click", () => {
         this.showPainelCreate();
       });
+
+    this.formUpdateEl.addEventListener("submit", (event) => {
+      event.preventDefault();
+
+      let btn = this.formUpdateEl.querySelector("[type=submit]");
+      btn.disabled = true;
+
+      let values = this.getValues(this.formUpdateEl);
+      if (!values) {
+        console.warn("Formulário de edição inválido");
+        btn.disabled = false;
+        return;
+      }
+
+      let index = this.formUpdateEl.dataset.trIndex;
+      if (typeof index === "undefined") {
+        console.error("Índice da linha não definido.");
+        btn.disabled = false;
+        return;
+      }
+
+      let tr = this.tableEl.rows[index];
+
+      values.register = new Date();
+
+      tr.dataset.user = JSON.stringify(values);
+
+      tr.innerHTML = `
+        <td>
+          <img
+            src="${values.photo || "dist/img/user1-128x128.jpg"}"
+            alt="User Image"
+            class="img-circle img-sm"
+          />
+        </td>
+        <td>${values.name || ""}</td>
+        <td>${values.email || ""}</td>
+        <td>${values.admin ? "Sim" : "Não"}</td>
+        <td>${values.register.toLocaleDateString()}</td>
+        <td>
+          <button type="button" class="btn btn-primary btn-edit btn-xs btn-flat">Editar</button>
+          <button type="button" class="btn btn-danger btn-xs btn-flat btn-delete">Excluir</button>
+        </td>
+      `;
+
+      this.addEventsTR(tr);
+      this.updateAcount();
+      this.showPainelCreate();
+      btn.disabled = false;
+    });
   }
 
   onSubmit() {
     this.formEl.addEventListener("submit", (event) => {
       event.preventDefault();
 
-      let values = this.getValues();
-
-      if (!values) return;
+      let values = this.getValues(this.formEl);
+      if (!values) {
+        console.warn("Formulário de criação inválido");
+        return;
+      }
 
       let btn = this.formEl.querySelector("[type=submit]");
       btn.disabled = true;
@@ -34,12 +89,14 @@ class UserController {
       this.getPhoto().then(
         (content) => {
           values.photo = content || "";
+          values.register = new Date();
+
           this.addLine(values);
           this.resetForm();
           btn.disabled = false;
         },
         (e) => {
-          console.error(e);
+          console.error("Erro ao carregar a foto:", e);
           btn.disabled = false;
         }
       );
@@ -80,16 +137,16 @@ class UserController {
       if (file) {
         fileReader.readAsDataURL(file);
       } else {
-        resolve();
+        resolve(null);
       }
     });
   }
 
-  getValues() {
+  getValues(formEl) {
     let user = {};
     let isValid = true;
 
-    [...this.formEl.elements].forEach((field) => {
+    [...formEl.elements].forEach((field) => {
       if (["name", "email", "password"].includes(field.name) && !field.value) {
         field.parentElement.classList.add("has-error");
         isValid = false;
@@ -99,25 +156,12 @@ class UserController {
         user.gender = field.value;
       } else if (field.name === "admin") {
         user.admin = field.checked;
-      } else if (field.name !== "photo") {
+      } else if (field.name !== "photo" && field.name !== "gender") {
         user[field.name] = field.value;
       }
     });
 
-    if (!isValid) return false;
-
-    user.photo = "";
-
-    return new User(
-      user.name,
-      user.gender,
-      user.birth,
-      user.country,
-      user.email,
-      user.password,
-      user.photo,
-      user.admin
-    );
+    return isValid ? user : false;
   }
 
   addLine(dataUser) {
@@ -133,35 +177,58 @@ class UserController {
           class="img-circle img-sm"
         />
       </td>
-      <td>${dataUser.name}</td>
-      <td>${dataUser.email}</td>
+      <td>${dataUser.name || ""}</td>
+      <td>${dataUser.email || ""}</td>
       <td>${dataUser.admin ? "Sim" : "Não"}</td>
-      <td>${Utils.dateFormat(dataUser.register)}</td>
+      <td>${dataUser.register.toLocaleDateString()}</td>
       <td>
         <button type="button" class="btn btn-primary btn-edit btn-xs btn-flat">Editar</button>
-        <button type="button" class="btn btn-danger btn-xs btn-flat">Excluir</button>
+        <button type="button" class="btn btn-danger btn-xs btn-flat btn-delete">Excluir</button>
       </td>
     `;
 
-    tr.querySelector(".btn-edit").addEventListener("click", () => {
-      this.showPainelUpdate();
+    this.addEventsTR(tr);
 
-      let json = JSON.parse(tr.dataset.user);
-      let form = document.querySelector("#box-user-update");
-
-      for (let name in json) {
-        let field = form.querySelector("name" + name.replace("_", "") + "]");
-
-        if (field) {
-          if (field.type == "file") continue;
-
-          field.value = json[name];
-        }
-      }
+    tr.querySelector(".btn-delete").addEventListener("click", () => {
+      tr.remove();
+      this.updateAcount();
     });
 
     this.tableEl.appendChild(tr);
     this.updateAcount();
+  }
+
+  addEventsTR(tr) {
+    tr.querySelector(".btn-edit").addEventListener("click", () => {
+      this.showPainelUpdate();
+
+      let json = JSON.parse(tr.dataset.user);
+      let form = this.formUpdateEl;
+
+      form.dataset.trIndex = tr.sectionRowIndex;
+
+      for (let name in json) {
+        let field = form.querySelector(`[name="${name}"]`);
+
+        if (field) {
+          if (field.type === "file") continue;
+
+          switch (field.type) {
+            case "radio":
+              let radioField = form.querySelector(
+                `[name="${name}"][value="${json[name]}"]`
+              );
+              if (radioField) radioField.checked = true;
+              break;
+            case "checkbox":
+              field.checked = json[name];
+              break;
+            default:
+              field.value = json[name];
+          }
+        }
+      }
+    });
   }
 
   showPainelCreate() {
@@ -186,7 +253,7 @@ class UserController {
       if (user.admin) adminNumber++;
     });
 
-    document.querySelector("#number-users").innerHTML = usersNumber;
-    document.querySelector("#number-users-admins").innerHTML = adminNumber;
+    document.querySelector("#number-users").textContent = usersNumber;
+    document.querySelector("#number-users-admins").textContent = adminNumber;
   }
 }
