@@ -18,58 +18,65 @@ class UserController {
   onEditCancel() {
     document
       .querySelector("#box-user-update .btn-cancel")
-      .addEventListener("click", () => {
-        this.showPainelCreate();
-      });
+      .addEventListener("click", () => this.showPainelCreate());
 
     this.formUpdateEl.addEventListener("submit", (event) => {
       event.preventDefault();
 
-      let btn = this.formUpdateEl.querySelector("[type=submit]");
+      const btn = this.formUpdateEl.querySelector("[type=submit]");
       btn.disabled = true;
 
-      let values = this.getValues(this.formUpdateEl);
+      const values = this.getValues(this.formUpdateEl);
       if (!values) {
         console.warn("Formulário de edição inválido");
         btn.disabled = false;
         return;
       }
 
-      let index = this.formUpdateEl.dataset.trIndex;
+      const index = this.formUpdateEl.dataset.trIndex;
       if (typeof index === "undefined") {
         console.error("Índice da linha não definido.");
         btn.disabled = false;
         return;
       }
 
-      let tr = this.tableEl.rows[index];
+      const tr = this.tableEl.rows[index];
+      const userOld = JSON.parse(tr.dataset.user);
 
-      values.register = new Date();
+      const result = Object.assign({}, userOld, values);
+      result.register = new Date();
 
-      tr.dataset.user = JSON.stringify(values);
+      this.getPhoto(this.formUpdateEl).then(
+        (content) => {
+          result._photo = content || userOld._photo;
 
-      tr.innerHTML = `
-        <td>
-          <img
-            src="${values.photo || "dist/img/user1-128x128.jpg"}"
-            alt="User Image"
-            class="img-circle img-sm"
-          />
-        </td>
-        <td>${values.name || ""}</td>
-        <td>${values.email || ""}</td>
-        <td>${values.admin ? "Sim" : "Não"}</td>
-        <td>${values.register.toLocaleDateString()}</td>
-        <td>
-          <button type="button" class="btn btn-primary btn-edit btn-xs btn-flat">Editar</button>
-          <button type="button" class="btn btn-danger btn-xs btn-flat btn-delete">Excluir</button>
-        </td>
-      `;
+          tr.dataset.user = JSON.stringify(result);
 
-      this.addEventsTR(tr);
-      this.updateAcount();
-      this.showPainelCreate();
-      btn.disabled = false;
+          tr.innerHTML = `
+            <td><img src="${
+              result._photo || "dist/img/user1-128x128.jpg"
+            }" class="img-circle img-sm" /></td>
+            <td>${result.name}</td>
+            <td>${result.email}</td>
+            <td>${result.admin ? "Sim" : "Não"}</td>
+            <td>${new Date(result.register).toLocaleDateString()}</td>
+            <td>
+              <button type="button" class="btn btn-primary btn-edit btn-xs btn-flat">Editar</button>
+              <button type="button" class="btn btn-danger btn-xs btn-flat btn-delete">Excluir</button>
+            </td>
+          `;
+
+          this.addEventsTR(tr);
+          this.updateAcount();
+          this.formUpdateEl.reset();
+          this.showPainelCreate();
+          btn.disabled = false;
+        },
+        (e) => {
+          console.error("Erro ao carregar a foto:", e);
+          btn.disabled = false;
+        }
+      );
     });
   }
 
@@ -77,16 +84,16 @@ class UserController {
     this.formEl.addEventListener("submit", (event) => {
       event.preventDefault();
 
-      let values = this.getValues(this.formEl);
+      const values = this.getValues(this.formEl);
       if (!values) {
         console.warn("Formulário de criação inválido");
         return;
       }
 
-      let btn = this.formEl.querySelector("[type=submit]");
+      const btn = this.formEl.querySelector("[type=submit]");
       btn.disabled = true;
 
-      this.getPhoto().then(
+      this.getPhoto(this.formEl).then(
         (content) => {
           values.photo = content || "";
           values.register = new Date();
@@ -107,43 +114,26 @@ class UserController {
     this.formEl.reset();
 
     [...this.formEl.elements].forEach((field) => {
-      if (field.parentElement?.classList.contains("has-error")) {
-        field.parentElement.classList.remove("has-error");
-      }
-
-      if (field.type === "checkbox" || field.type === "radio") {
-        field.checked = false;
-      }
-
-      if (field.type === "file") {
-        field.value = "";
-      }
+      field.parentElement?.classList.remove("has-error");
+      if (["checkbox", "radio"].includes(field.type)) field.checked = false;
+      if (field.type === "file") field.value = "";
     });
   }
 
-  getPhoto() {
+  getPhoto(formEl) {
     return new Promise((resolve, reject) => {
-      let fileReader = new FileReader();
-
-      let elements = [...this.formEl.elements].filter(
-        (item) => item.name === "photo"
-      );
-
-      let file = elements[0]?.files[0];
+      const fileReader = new FileReader();
+      const file = formEl.querySelector('[name="photo"]')?.files[0];
 
       fileReader.onload = () => resolve(fileReader.result);
       fileReader.onerror = (e) => reject(e);
 
-      if (file) {
-        fileReader.readAsDataURL(file);
-      } else {
-        resolve(null);
-      }
+      file ? fileReader.readAsDataURL(file) : resolve(null);
     });
   }
 
   getValues(formEl) {
-    let user = {};
+    const user = {};
     let isValid = true;
 
     [...formEl.elements].forEach((field) => {
@@ -165,25 +155,21 @@ class UserController {
   }
 
   addLine(dataUser) {
-    let tr = document.createElement("tr");
-
+    const tr = document.createElement("tr");
+    dataUser._photo = dataUser.photo;
     tr.dataset.user = JSON.stringify(dataUser);
 
     tr.innerHTML = `
-      <td>
-        <img
-          src="${dataUser.photo || "dist/img/user1-128x128.jpg"}"
-          alt="User Image"
-          class="img-circle img-sm"
-        />
-      </td>
-      <td>${dataUser.name || ""}</td>
-      <td>${dataUser.email || ""}</td>
+      <td><img src="${
+        dataUser.photo || "dist/img/user1-128x128.jpg"
+      }" class="img-circle img-sm" /></td>
+      <td>${dataUser.name}</td>
+      <td>${dataUser.email}</td>
       <td>${dataUser.admin ? "Sim" : "Não"}</td>
-      <td>${dataUser.register.toLocaleDateString()}</td>
+      <td>${new Date(dataUser.register).toLocaleDateString()}</td>
       <td>
         <button type="button" class="btn btn-primary btn-edit btn-xs btn-flat">Editar</button>
-        <button type="button" class="btn btn-danger btn-xs btn-flat btn-delete">Excluir</button>
+        <button type="button" class="btn btn-danger btn-delete btn-xs btn-flat btn-delete">Excluir</button>
       </td>
     `;
 
@@ -199,35 +185,39 @@ class UserController {
   }
 
   addEventsTR(tr) {
+    tr.querySelector(".btn-delete").addEventListener("click", () => {
+      if (confirm("Deseja realmente excluir?")) {
+        tr.remove();
+      }
+    });
+
     tr.querySelector(".btn-edit").addEventListener("click", () => {
       this.showPainelUpdate();
 
-      let json = JSON.parse(tr.dataset.user);
-      let form = this.formUpdateEl;
-
-      form.dataset.trIndex = tr.sectionRowIndex;
+      const json = JSON.parse(tr.dataset.user);
+      this.formUpdateEl.dataset.trIndex = tr.sectionRowIndex;
 
       for (let name in json) {
-        let field = form.querySelector(`[name="${name}"]`);
+        const field = this.formUpdateEl.querySelector(`[name="${name}"]`);
+        if (!field || field.type === "file") continue;
 
-        if (field) {
-          if (field.type === "file") continue;
-
-          switch (field.type) {
-            case "radio":
-              let radioField = form.querySelector(
-                `[name="${name}"][value="${json[name]}"]`
-              );
-              if (radioField) radioField.checked = true;
-              break;
-            case "checkbox":
-              field.checked = json[name];
-              break;
-            default:
-              field.value = json[name];
-          }
+        switch (field.type) {
+          case "radio":
+            const radio = this.formUpdateEl.querySelector(
+              `[name="${name}"][value="${json[name]}"]`
+            );
+            if (radio) radio.checked = true;
+            break;
+          case "checkbox":
+            field.checked = json[name];
+            break;
+          default:
+            field.value = json[name];
         }
       }
+
+      const imgEl = this.formUpdateEl.querySelector(".photo");
+      if (imgEl && json._photo) imgEl.src = json._photo;
     });
   }
 
@@ -246,10 +236,8 @@ class UserController {
     let adminNumber = 0;
 
     [...this.tableEl.children].forEach((tr) => {
+      const user = JSON.parse(tr.dataset.user);
       usersNumber++;
-
-      let user = JSON.parse(tr.dataset.user);
-
       if (user.admin) adminNumber++;
     });
 
