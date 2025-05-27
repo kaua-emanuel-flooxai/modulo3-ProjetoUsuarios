@@ -1,5 +1,3 @@
-const { jsx } = require("react/jsx-runtime");
-
 class UserController {
   constructor(formId, formUpdate, tableId) {
     this.formEl = document.getElementById(formId);
@@ -51,10 +49,10 @@ class UserController {
 
       this.getPhoto(this.formUpdateEl).then(
         (content) => {
-          result._photo = content || userOld._photo;
+          result.photo = content || userOld.photo;
 
-          let user = new User(result);
-          user.loadFromJSON();
+          let user = new User();
+          user.loadFromJSON(result);
 
           this.getTr(user, tr);
 
@@ -161,9 +159,7 @@ class UserController {
 
     users.forEach((data) => {
       let user = new User();
-
-      user.loadFromJSON(dataUser);
-
+      user.loadFromJSON(data);
       this.addLine(user);
     });
   }
@@ -173,7 +169,7 @@ class UserController {
 
     users.push(data);
 
-    localStorage.setItem("user", JSON.stringify(users));
+    localStorage.setItem("users", JSON.stringify(users));
   }
 
   addLine(dataUser) {
@@ -212,6 +208,7 @@ class UserController {
     tr.querySelector(".btn-delete").addEventListener("click", () => {
       if (confirm("Deseja realmente excluir?")) {
         tr.remove();
+        this.updateAcount();
       }
     });
 
@@ -241,7 +238,7 @@ class UserController {
       }
 
       const imgEl = this.formUpdateEl.querySelector(".photo");
-      if (imgEl && json._photo) imgEl.src = json._photo;
+      if (imgEl && json.photo) imgEl.src = json.photo;
     });
   }
 
