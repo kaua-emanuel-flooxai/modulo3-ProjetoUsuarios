@@ -53,21 +53,10 @@ class UserController {
         (content) => {
           result._photo = content || userOld._photo;
 
-          tr.dataset.user = JSON.stringify(result);
+          let user = new User(result);
+          user.loadFromJSON();
 
-          tr.innerHTML = `
-            <td><img src="${
-              result._photo || "dist/img/user1-128x128.jpg"
-            }" class="img-circle img-sm" /></td>
-            <td>${result.name}</td>
-            <td>${result.email}</td>
-            <td>${result.admin ? "Sim" : "Não"}</td>
-            <td>${new Date(result.register).toLocaleDateString()}</td>
-            <td>
-              <button type="button" class="btn btn-primary btn-edit btn-xs btn-flat">Editar</button>
-              <button type="button" class="btn btn-danger btn-xs btn-flat btn-delete">Excluir</button>
-            </td>
-          `;
+          this.getTr(user, tr);
 
           this.addEventsTR(tr);
           this.updateAcount();
@@ -188,9 +177,16 @@ class UserController {
   }
 
   addLine(dataUser) {
-    const tr = document.createElement("tr");
+    let tr = this.getTr(dataUser);
 
-    dataUser._photo = dataUser.photo;
+    this.tableEl.appendChild(tr);
+
+    this.updateAcount();
+  }
+
+  getTr(dataUser, tr = null) {
+    if (tr === null) tr = document.createElement("tr");
+
     tr.dataset.user = JSON.stringify(dataUser);
 
     tr.innerHTML = `
@@ -209,13 +205,7 @@ class UserController {
 
     this.addEventsTR(tr);
 
-    tr.querySelector(".btn-delete").addEventListener("click", () => {
-      tr.remove();
-      this.updateAcount();
-    });
-
-    this.tableEl.appendChild(tr);
-    this.updateAcount();
+    return tr;
   }
 
   addEventsTR(tr) {
