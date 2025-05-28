@@ -52,7 +52,10 @@ class UserController {
           result.photo = content || userOld.photo;
 
           let user = new User();
+
           user.loadFromJSON(result);
+
+          user.save();
 
           this.getTr(user, tr);
 
@@ -87,7 +90,7 @@ class UserController {
         (content) => {
           values.photo = content;
 
-          this.insert(values);
+          values.save();
 
           this.addLine(values);
           this.resetForm();
@@ -164,14 +167,6 @@ class UserController {
     });
   }
 
-  insert(data) {
-    let users = this.getUsersStorege();
-
-    users.push(data);
-
-    localStorage.setItem("users", JSON.stringify(users));
-  }
-
   addLine(dataUser) {
     let tr = this.getTr(dataUser);
 
@@ -207,6 +202,12 @@ class UserController {
   addEventsTR(tr) {
     tr.querySelector(".btn-delete").addEventListener("click", () => {
       if (confirm("Deseja realmente excluir?")) {
+        let user = new User();
+
+        user.loadFromJSON(JSON.parse(tr.dataset.user));
+
+        user.remove();
+
         tr.remove();
         this.updateAcount();
       }
